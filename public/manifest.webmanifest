@@ -1,0 +1,13 @@
+{
+  "name": "Earth Online 2.0",
+  "short_name": "Earth Online",
+  "description": "Level up your real life, one week at a time.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14131a",
+  "theme_color": "#14131a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
