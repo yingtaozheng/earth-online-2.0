@@ -15,7 +15,7 @@ import {
   levelInfo,
   totalXp,
 } from '../lib/scoring';
-import { toWeekId } from '../lib/week';
+import { alignWeekId, toWeekId } from '../lib/week';
 import type {
   Achievement,
   CheckIn,
@@ -170,7 +170,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return { ...state, rules: DEFAULT_RULES.map((r) => ({ ...r })) };
 
     case 'updateSettings':
-      return { ...state, settings: { ...state.settings, ...action.patch } };
+      return alignWeeks({ ...state, settings: { ...state.settings, ...action.patch } });
 
     case 'adjustStat':
       return applyAutoAchievements(
@@ -200,6 +200,22 @@ export function reducer(state: GameState, action: Action): GameState {
   }
 }
 
+/**
+ * Week ids only match when they share a first day. After the "week starts on"
+ * setting changes, this moves every stored id onto the new grid so that weekly
+ * totals, streaks and the history chart keep finding their events.
+ */
+export function alignWeeks(state: GameState): GameState {
+  const start = state.settings.weekStartsOn;
+  const off = (weekId: string) => alignWeekId(weekId, start) !== weekId;
+  if (!state.ledger.some((e) => off(e.weekId)) && !state.checkins.some((c) => off(c.weekId))) return state;
+  return {
+    ...state,
+    ledger: state.ledger.map((e) => ({ ...e, weekId: alignWeekId(e.weekId, start) })),
+    checkins: state.checkins.map((c) => ({ ...c, weekId: alignWeekId(c.weekId, start) })),
+  };
+}
+
 /** Fills in anything missing from older or hand-edited save files. */
 export function normalizeState(raw: unknown): GameState {
   const fresh = createInitialState();
@@ -214,7 +230,7 @@ export function normalizeState(raw: unknown): GameState {
       ...STAT_MILESTONES.filter((a) => !have.has(a.id) && !SEED1_MILESTONE_IDS.includes(a.id)),
     ];
   }
-  return {
+  return alignWeeks({
     version: 1,
     seed: SEED_VERSION,
     settings: { ...fresh.settings, ...s.settings },
@@ -225,7 +241,7 @@ export function normalizeState(raw: unknown): GameState {
     ledger: Array.isArray(s.ledger) ? s.ledger : [],
     checkins: Array.isArray(s.checkins) ? s.checkins : [],
     suggestions: Array.isArray(s.suggestions) ? s.suggestions : [],
-  };
+  });
 }
 
 function loadState(): GameState {

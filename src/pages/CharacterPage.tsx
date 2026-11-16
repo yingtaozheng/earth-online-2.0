@@ -66,16 +66,16 @@ export function CharacterPage({ go }: { go: (tab: Tab) => void }) {
             <span className="small muted">{weekLabel(weekId)}</span>
           </div>
           <DeltaChips deltas={thisWeek} />
-          <div className="spread">
-            <span className="small muted">{streak > 0 ? `🔥 ${streak}-week streak` : 'No streak yet'}</span>
-            {checkedIn ? (
-              <span className="small good">✓ Checked in</span>
-            ) : (
-              <button className="btn small primary" onClick={() => go('checkin')}>
-                Weekly check-in
-              </button>
-            )}
-          </div>
+          <span className="small muted">{streak > 0 ? `🔥 ${streak}-week streak` : 'No streak yet'}</span>
+          {checkedIn ? (
+            <button className="btn big" onClick={() => go('checkin')}>
+              <span className="good">✓</span> Checked in this week · redo
+            </button>
+          ) : (
+            <button className="btn big primary" onClick={() => go('checkin')}>
+              🧙 Start weekly check-in
+            </button>
+          )}
         </div>
       </section>
 

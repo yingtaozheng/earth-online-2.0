@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { STAT_IDS } from '../types';
 import { uid } from './id';
-import { addWeeks, toWeekId, weeksBetween } from './week';
+import { addWeeks, alignWeekId, toWeekId, weeksBetween } from './week';
 
 // ---------- stats ----------
 
@@ -279,6 +279,8 @@ export function nextStatGoal(state: GameState, statId: StatId): { achievement: A
 
 // ---------- history ----------
 
+const MAX_SERIES_WEEKS = 520;
+
 export interface WeekPoint {
   weekId: string;
   values: StatValues;
@@ -293,19 +295,25 @@ export interface WeekPoint {
  * events carry the previous values forward.
  */
 export function weeklySeries(state: GameState, currentWeekId: string): WeekPoint[] {
-  const firstEventWeek = state.ledger.reduce<string | null>(
-    (min, e) => (min === null || e.weekId < min ? e.weekId : min),
-    null,
-  );
-  const createdWeek = toWeekId(new Date(state.settings.startedAt), state.settings.weekStartsOn);
-  let start = firstEventWeek && firstEventWeek < createdWeek ? firstEventWeek : createdWeek;
-  if (start > currentWeekId) start = currentWeekId;
+  const { weekStartsOn } = state.settings;
+  const eventWeeks = state.ledger.map((e) => alignWeekId(e.weekId, weekStartsOn));
+  const createdWeek = toWeekId(new Date(state.settings.startedAt), weekStartsOn);
+  let start = [createdWeek, ...eventWeeks].reduce((min, w) => (w < min ? w : min), currentWeekId);
+  if (weeksBetween(start, currentWeekId) >= MAX_SERIES_WEEKS) start = addWeeks(currentWeekId, -(MAX_SERIES_WEEKS - 1));
+
+  // Every event lands in exactly one week of the series (clamped to its ends), so the
+  // last point always adds up to the character's current stats.
+  const byWeek = new Map<string, LedgerEvent[]>();
+  state.ledger.forEach((e, i) => {
+    const week = eventWeeks[i] < start ? start : eventWeeks[i] > currentWeekId ? currentWeekId : eventWeeks[i];
+    byWeek.set(week, [...(byWeek.get(week) ?? []), e]);
+  });
 
   // Ledger order matters for the zero floor, so replay events in ledger order per week.
   const points: WeekPoint[] = [];
   let values = { ...state.baseStats };
-  for (let week = start, i = 0; week <= currentWeekId && i < 520; week = addWeeks(week, 1), i++) {
-    const events = state.ledger.filter((e) => e.weekId === week);
+  for (let week = start; week <= currentWeekId; week = addWeeks(week, 1)) {
+    const events = byWeek.get(week) ?? [];
     values = computeStats(values, events);
     points.push({ weekId: week, values, change: sumDeltas(...events.map((e) => e.deltas)) });
   }

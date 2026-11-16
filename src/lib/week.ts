@@ -25,6 +25,18 @@ export function weekIdToDate(weekId: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/**
+ * Moves a week id onto the current week grid. Ids are only comparable when they
+ * share a first day, so after "week starts on" changes, older ids are shifted to
+ * the week they overlap most (a Monday week maps to the Sunday week one day earlier).
+ */
+export function alignWeekId(weekId: string, weekStartsOn: 0 | 1): string {
+  const d = weekIdToDate(weekId);
+  if (Number.isNaN(d.getTime()) || d.getDay() === weekStartsOn) return weekId;
+  d.setDate(d.getDate() + 3);
+  return toWeekId(d, weekStartsOn);
+}
+
 export function addWeeks(weekId: string, n: number): string {
   const d = weekIdToDate(weekId);
   d.setDate(d.getDate() + 7 * n);

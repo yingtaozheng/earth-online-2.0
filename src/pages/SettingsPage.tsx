@@ -51,7 +51,7 @@ export function SettingsPage() {
             </select>
           </label>
         </div>
-        <span className="small muted">Changing the week start only affects new weeks; past check-ins keep their dates.</span>
+        <span className="small muted">Changing the week start moves past weeks by a day to match; nothing is lost.</span>
       </section>
 
       <DataSection />

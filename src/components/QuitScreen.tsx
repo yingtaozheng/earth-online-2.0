@@ -5,7 +5,7 @@ import { useCharacter, useGame } from '../state/store';
 import { prefersReducedMotion } from './StartScreen';
 
 /** How long the goodbye plays before the tab tries to close. Matches the CSS delays under `.splash.quit`. */
-const OUTRO_MS = 4200;
+const OUTRO_MS = 9000;
 
 /**
  * Goodbye screen. Nothing needs saving here (every change is already in
@@ -28,7 +28,7 @@ export function QuitScreen({ onReturn }: { onReturn: () => void }) {
         setDone(true);
         window.close();
       },
-      prefersReducedMotion() ? 1500 : OUTRO_MS,
+      prefersReducedMotion() ? 5000 : OUTRO_MS,
     );
     return () => clearTimeout(timer);
   }, []);

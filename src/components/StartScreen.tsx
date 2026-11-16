@@ -11,8 +11,8 @@ export const prefersReducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * Title screen shown on every launch. The intro can be skipped with a tap or
- * any key; Continue (or Enter) then enters the game.
+ * Title screen shown on every launch. A tap or any key skips the intro;
+ * Continue, or Enter at any time, enters the game.
  */
 export function StartScreen({ onEnter, onDone }: { onEnter: () => void; onDone: () => void }) {
   const { state } = useGame();
@@ -20,6 +20,7 @@ export function StartScreen({ onEnter, onDone }: { onEnter: () => void; onDone: 
   const [ready, setReady] = useState(prefersReducedMotion);
   const [leaving, setLeaving] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const entered = useRef(false);
 
   const now = new Date();
   const weekId = toWeekId(now, state.settings.weekStartsOn);
@@ -36,20 +37,28 @@ export function StartScreen({ onEnter, onDone }: { onEnter: () => void; onDone: 
     if (ready) button.current?.focus();
   }, [ready]);
 
-  // Any key skips the intro. Once ready, the focused button handles Enter and Space itself.
-  useEffect(() => {
-    if (ready) return;
-    const skip = () => setReady(true);
-    window.addEventListener('keydown', skip);
-    return () => window.removeEventListener('keydown', skip);
-  }, [ready]);
-
   function enter() {
-    if (leaving) return;
+    if (entered.current) return;
+    entered.current = true;
+    setReady(true);
     setLeaving(true);
     onEnter();
     setTimeout(onDone, prefersReducedMotion() ? 0 : EXIT_MS);
   }
+
+  // Enter starts the game at any point, wherever the focus is. Any other key skips the intro.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        enter();
+      } else if (!['Shift', 'Control', 'Alt', 'Meta', 'Tab'].includes(e.key)) {
+        setReady(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   return (
     <div
@@ -94,7 +103,7 @@ export function StartScreen({ onEnter, onDone }: { onEnter: () => void; onDone: 
           <button ref={button} className="splash-continue" onClick={enter} disabled={!ready} tabIndex={ready ? 0 : -1}>
             Continue
           </button>
-          <span className="splash-hint">{ready ? 'Press Enter' : 'Tap to skip'}</span>
+          <span className="splash-hint">{ready ? 'or press Enter' : 'Press Enter to start · tap to skip'}</span>
         </div>
       </div>
     </div>

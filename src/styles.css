@@ -172,6 +172,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .btn.danger { color: var(--bad); }
 .btn.ghost { background: transparent; border-color: transparent; }
+.btn.big { width: 100%; padding: 14px 18px; font-size: 17px; font-weight: 700; border-radius: 10px; margin-top: auto; }
 .btn.small { padding: 4px 10px; font-size: 13px; }
 .btn.yes[aria-pressed='true'] { background: var(--good); border-color: var(--good); color: #fff; }
 .btn.no[aria-pressed='true'] { background: var(--bad); border-color: var(--bad); color: #fff; }
@@ -368,15 +369,16 @@ button.link:hover { color: var(--text); }
 }
 
 /* Goodbye screen: the same stage, played as a sign-off. */
-.splash.quit { animation: splash-fade 0.5s ease both; cursor: default; }
-.splash.quit .splash-globe { animation: quit-dim 1.6s 0.2s var(--ease-out) both; }
-.splash.quit .splash-orbit { animation: splash-spin 9s linear infinite, quit-orbit 1.6s 0.2s ease both; }
+.splash.quit { animation: splash-fade 0.8s ease both; cursor: default; }
+.splash.quit .splash-globe { animation: quit-dim 3s 0.3s var(--ease-out) both; }
+.splash.quit .splash-orbit { animation: splash-spin 9s linear infinite, quit-orbit 3s 0.3s ease both; }
 .splash.quit .splash-boot { margin-bottom: 24px; }
-.splash.quit .splash-boot li:nth-child(1) { animation-delay: 0.5s; }
-.splash.quit .splash-boot li:nth-child(2) { animation-delay: 0.9s; }
-.splash.quit .splash-boot li:nth-child(3) { animation-delay: 1.3s; }
-.quit-title { animation-delay: 1.9s; white-space: normal; }
-.quit-message { margin: 12px 0 24px; line-height: 1.6; animation-delay: 2.8s; }
+.splash.quit .splash-boot li { animation-duration: 0.6s; }
+.splash.quit .splash-boot li:nth-child(1) { animation-delay: 0.8s; }
+.splash.quit .splash-boot li:nth-child(2) { animation-delay: 1.6s; }
+.splash.quit .splash-boot li:nth-child(3) { animation-delay: 2.4s; }
+.quit-title { animation-duration: 1.6s; animation-delay: 3.4s; white-space: normal; }
+.quit-message { margin: 12px 0 24px; line-height: 1.6; animation-duration: 1.2s; animation-delay: 5s; }
 .quit-action { opacity: 0; transition: opacity 0.6s ease; }
 .quit-action.done { opacity: 1; }
 .quit-action .splash-hint { animation: none; }
