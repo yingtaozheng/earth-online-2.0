@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DeltaChips, statColor } from '../components/StatChip';
-import { STAT_LIST } from '../data/defaults';
-import { classTitle, currentStreak, weekDeltas } from '../lib/scoring';
+import { STATS, STAT_LIST } from '../data/defaults';
+import { classTitle, currentStreak, nextStatGoal, statsWeakestFirst, weekDeltas } from '../lib/scoring';
 import { useNow } from '../lib/useNow';
 import { toWeekId, weekLabel } from '../lib/week';
 import { useCharacter, useGame } from '../state/store';
@@ -19,6 +19,12 @@ export function CharacterPage({ go }: { go: (tab: Tab) => void }) {
   const scale = Math.max(20, Math.ceil(Math.max(...Object.values(stats)) / 10) * 10);
   const recent = [...state.ledger].reverse().slice(0, 8);
   const [adjusting, setAdjusting] = useState<StatId | null>(null);
+  const goals = Object.fromEntries(STAT_LIST.map((s) => [s.id, nextStatGoal(state, s.id)])) as Record<
+    StatId,
+    ReturnType<typeof nextStatGoal>
+  >;
+  const weakest = statsWeakestFirst(stats)[0];
+  const behind = Math.max(...Object.values(stats)) - stats[weakest];
 
   return (
     <div>
@@ -66,7 +72,14 @@ export function CharacterPage({ go }: { go: (tab: Tab) => void }) {
       </section>
 
       <section className="section">
-        <h2>Attributes</h2>
+        <div className="spread">
+          <h2>Attributes</h2>
+          {behind > 0 && (
+            <button className="btn small ghost" onClick={() => go('quests')}>
+              {STATS[weakest].icon} {STATS[weakest].name} is {behind} behind your best · find quests →
+            </button>
+          )}
+        </div>
         <div className="grid grid-3">
           {STAT_LIST.map((s) => {
             const d = thisWeek[s.id];
@@ -93,6 +106,12 @@ export function CharacterPage({ go }: { go: (tab: Tab) => void }) {
                   <span style={{ width: `${(stats[s.id] / scale) * 100}%` }} />
                 </div>
                 <span className="small muted">{s.description}</span>
+                {goals[s.id] && (
+                  <span className="small">
+                    🎯 {goals[s.id]!.target - stats[s.id]} to go for <strong>{goals[s.id]!.achievement.title}</strong>{' '}
+                    <span className="muted">(at {goals[s.id]!.target})</span>
+                  </span>
+                )}
                 {adjusting === s.id ? (
                   <AdjustForm
                     onDone={(delta, note) => {

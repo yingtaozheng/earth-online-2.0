@@ -175,6 +175,8 @@ export function achievementProgress(
       return { current: longestStreak(ctx.checkins.map((ci) => ci.weekId)), target: c.weeks };
     case 'statReaches':
       return { current: ctx.stats[c.statId], target: c.value };
+    case 'allStatsReach':
+      return { current: Math.min(...STAT_IDS.map((id) => ctx.stats[id])), target: c.value };
     case 'tasksCompleted':
       return { current: ctx.tasksCompleted, target: c.count };
     case 'level':
@@ -222,6 +224,50 @@ export function achievementEvent(a: Achievement, weekId: string, now = new Date(
     title: `Achievement unlocked: ${a.title}`,
     deltas: { ...a.reward },
   };
+}
+
+// ---------- stat goals ----------
+
+/** Stat ids from weakest to strongest (ties keep STAT_IDS order). */
+export function statsWeakestFirst(stats: StatValues): StatId[] {
+  return [...STAT_IDS].sort((a, b) => stats[a] - stats[b]);
+}
+
+const tierGroup = (a: Achievement): string | null =>
+  a.condition.kind === 'statReaches' ? `stat:${a.condition.statId}` : a.condition.kind === 'allStatsReach' ? 'all' : null;
+
+const tierValue = (a: Achievement): number =>
+  a.condition.kind === 'statReaches' || a.condition.kind === 'allStatsReach' ? a.condition.value : 0;
+
+/**
+ * Stat milestones come in tiers (15, 20, 30…). Returns the ids of locked tiers
+ * that sit behind a lower locked tier of the same stat, so the UI can show
+ * only the next goal for each stat.
+ */
+export function laterTierIds(achievements: Achievement[], unlocked: Set<string>): Set<string> {
+  const lowest = new Map<string, number>();
+  for (const a of achievements) {
+    const group = tierGroup(a);
+    if (!group || unlocked.has(a.id)) continue;
+    lowest.set(group, Math.min(lowest.get(group) ?? Infinity, tierValue(a)));
+  }
+  const hidden = new Set<string>();
+  for (const a of achievements) {
+    const group = tierGroup(a);
+    if (group && !unlocked.has(a.id) && tierValue(a) > lowest.get(group)!) hidden.add(a.id);
+  }
+  return hidden;
+}
+
+/** The next locked "reach N" milestone for one stat, if any. */
+export function nextStatGoal(state: GameState, statId: StatId): { achievement: Achievement; target: number } | null {
+  const unlocked = unlockedAchievementIds(state.ledger);
+  let best: Achievement | null = null;
+  for (const a of state.achievements) {
+    if (a.condition.kind !== 'statReaches' || a.condition.statId !== statId || unlocked.has(a.id)) continue;
+    if (!best || tierValue(a) < tierValue(best)) best = a;
+  }
+  return best ? { achievement: best, target: tierValue(best) } : null;
 }
 
 // ---------- history ----------

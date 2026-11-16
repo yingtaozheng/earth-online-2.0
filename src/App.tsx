@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { GameClock } from './components/GameClock';
+import { StartScreen } from './components/StartScreen';
 import { CharacterPage } from './pages/CharacterPage';
 import { CheckInPage } from './pages/CheckInPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -45,6 +46,17 @@ export function App() {
     window.scrollTo({ top: 0 });
   };
 
+  // The start screen covers the app on every launch; the app mounts underneath as it fades out.
+  const [intro, setIntro] = useState<'showing' | 'leaving' | 'gone'>('showing');
+  return (
+    <>
+      {intro !== 'gone' && <StartScreen onEnter={() => setIntro('leaving')} onDone={() => setIntro('gone')} />}
+      {intro !== 'showing' && <Shell tab={tab} go={go} />}
+    </>
+  );
+}
+
+function Shell({ tab, go }: { tab: Tab; go: (tab: Tab) => void }) {
   return (
     <div className="app">
       <header className="topbar">
@@ -72,7 +84,7 @@ export function App() {
       <main>
         {tab === 'character' && <CharacterPage go={go} />}
         {tab === 'checkin' && <CheckInPage go={go} />}
-        {tab === 'quests' && <QuestsPage />}
+        {tab === 'quests' && <QuestsPage go={go} />}
         {tab === 'history' && <HistoryPage />}
         {tab === 'rules' && <RulesPage />}
         {tab === 'settings' && <SettingsPage />}

@@ -54,6 +54,8 @@ export type AchievementCondition =
   | { kind: 'checkins'; count: number }
   | { kind: 'streak'; weeks: number }
   | { kind: 'statReaches'; statId: StatId; value: number }
+  /** Every stat is at least `value`: progress is the weakest stat. */
+  | { kind: 'allStatsReach'; value: number }
   | { kind: 'tasksCompleted'; count: number }
   | { kind: 'level'; level: number };
 
@@ -64,6 +66,16 @@ export interface Achievement {
   icon: string;
   condition: AchievementCondition;
   reward: StatDeltas;
+}
+
+/** A task proposed by the Game Master, waiting for the player to accept or dismiss it. */
+export interface QuestSuggestion {
+  id: string;
+  title: string;
+  statId: StatId;
+  points: number;
+  repeat: Task['repeat'];
+  reason: string;
 }
 
 export interface StatChange {
@@ -108,6 +120,8 @@ export interface Settings {
 
 export interface GameState {
   version: 1;
+  /** Which batch of built-in content this save has received (see normalizeState). */
+  seed: number;
   settings: Settings;
   baseStats: StatValues;
   rules: Rule[];
@@ -115,4 +129,5 @@ export interface GameState {
   achievements: Achievement[];
   ledger: LedgerEvent[];
   checkins: CheckIn[];
+  suggestions: QuestSuggestion[];
 }

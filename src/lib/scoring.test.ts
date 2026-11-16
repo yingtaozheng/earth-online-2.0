@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../data/defaults';
-import { reducer } from '../state/store';
+import { normalizeState, reducer } from '../state/store';
 import type { CheckIn, GameState, LedgerEvent } from '../types';
 import {
   applyAutoAchievements,
@@ -8,10 +8,14 @@ import {
   classTitle,
   computeStats,
   currentStreak,
+  laterTierIds,
   levelInfo,
   longestStreak,
+  nextStatGoal,
+  statsWeakestFirst,
   sumDeltas,
   totalXp,
+  unlockedAchievementIds,
   weeklySeries,
 } from './scoring';
 import { addWeeks, toWeekId } from './week';
@@ -107,7 +111,69 @@ describe('achievements', () => {
   });
 });
 
+describe('stat milestones', () => {
+  it('unlocks a stat tier and rewards the partner stat', () => {
+    let state: GameState = { ...createInitialState(), ledger: [ev({ str: 5 })] };
+    state = applyAutoAchievements(state, new Date(2026, 9, 10));
+    const unlocked = unlockedAchievementIds(state.ledger);
+    expect(unlocked.has('ach-str15')).toBe(true);
+    expect(unlocked.has('ach-str20')).toBe(false);
+    expect(computeStats(state.baseStats, state.ledger).vit).toBe(11);
+  });
+
+  it('unlocks the all-stats tier only when the weakest stat gets there', () => {
+    const all = { int: 5, str: 5, vit: 5, cre: 5, soc: 5, dis: 5 };
+    let state: GameState = { ...createInitialState(), ledger: [ev({ ...all, soc: 2 })] };
+    state = applyAutoAchievements(state, new Date(2026, 9, 10));
+    // Reaching 15 Discipline rewards +1 Social, which still leaves Social at 13.
+    expect(computeStats(state.baseStats, state.ledger).soc).toBe(13);
+    expect(unlockedAchievementIds(state.ledger).has('ach-all15')).toBe(false);
+
+    state = applyAutoAchievements({ ...state, ledger: [...state.ledger, ev({ soc: 2 })] }, new Date(2026, 9, 10));
+    expect(unlockedAchievementIds(state.ledger).has('ach-all15')).toBe(true);
+    expect(computeStats(state.baseStats, state.ledger).soc).toBe(16); // +1 to every stat
+  });
+
+  it('shows only the next tier per stat and names the next goal', () => {
+    const state: GameState = { ...createInitialState(), ledger: [ev({ str: 5 })] };
+    const after = applyAutoAchievements(state, new Date(2026, 9, 10));
+    const hidden = laterTierIds(after.achievements, unlockedAchievementIds(after.ledger));
+    expect(hidden.has('ach-str20')).toBe(false); // 15 is unlocked, so 20 is next
+    expect(hidden.has('ach-str30')).toBe(true);
+    expect(hidden.has('ach-int15')).toBe(false);
+    expect(hidden.has('ach-int20')).toBe(true);
+    expect(hidden.has('ach-all20')).toBe(true);
+    expect(nextStatGoal(after, 'str')?.target).toBe(20);
+    expect(statsWeakestFirst({ int: 12, str: 15, vit: 9, cre: 12, soc: 10, dis: 11 }).slice(0, 2)).toEqual(['vit', 'soc']);
+  });
+
+  it('adds milestones to older saves once, without restoring deleted ones', () => {
+    const fresh = createInitialState();
+    const old = { ...fresh, seed: undefined, achievements: fresh.achievements.filter((a) => a.id === 'ach-first') };
+    const migrated = normalizeState(JSON.parse(JSON.stringify(old)));
+    const ids = migrated.achievements.map((a) => a.id);
+    expect(ids).toContain('ach-vit15');
+    expect(ids).toContain('ach-all30');
+    expect(ids).not.toContain('ach-str20'); // shipped in seed 1 and was deleted by the player
+    expect(migrated.suggestions).toEqual([]);
+
+    const again = normalizeState({ ...migrated, achievements: [] });
+    expect(again.achievements).toEqual([]);
+  });
+});
+
 describe('reducer', () => {
+  it('turns an accepted suggestion into a task', () => {
+    let state = createInitialState();
+    const suggestion = { id: 'sq-1', title: 'Invite Sam for coffee', statId: 'soc', points: 2, repeat: 'once', reason: '' } as const;
+    state = reducer(state, { type: 'setSuggestions', suggestions: [suggestion, { ...suggestion, id: 'sq-2', title: 'Other' }] });
+    state = reducer(state, { type: 'acceptSuggestion', id: 'sq-1' });
+    state = reducer(state, { type: 'dismissSuggestion', id: 'sq-2' });
+    expect(state.suggestions).toEqual([]);
+    expect(state.tasks.at(-1)).toMatchObject({ title: 'Invite Sam for coffee', statId: 'soc', points: 2, repeat: 'once' });
+    expect(state.tasks.some((t) => t.title === 'Other')).toBe(false);
+  });
+
   it('replaces a week when checking in twice and completes detected tasks once', () => {
     let state = createInitialState();
     const week = toWeekId(new Date(), state.settings.weekStartsOn);

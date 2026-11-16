@@ -148,7 +148,7 @@ export function CheckInPage({ go }: { go: (tab: Tab) => void }) {
             View character
           </button>
           <button className="btn" onClick={() => go('quests')}>
-            Check achievements
+            Get new quests
           </button>
         </div>
       </div>

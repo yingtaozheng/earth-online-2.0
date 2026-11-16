@@ -39,7 +39,7 @@ Tick the boxes (`[x]`) for what you want and add notes. Then ask Claude to "appl
 - [ ] **B3. Weekly reminder** on Sunday evening ("Your weekly reset is in 3 hours, check in with the Game Master"). Easiest: download a recurring calendar event (.ics) from Settings. True push notifications need a server.
 - [ ] **B4. Calendar import**: upload an `.ics` export or connect Google Calendar, so you don't have to paste your schedule.
 - [ ] **B5. Chat with the Game Master** after scoring: "Why did I lose Social?", "Actually I went to the gym 3 times." It re-scores in the conversation.
-- [ ] **B6. Next-week quests from the Game Master**: after each check-in, it suggests 2–3 tasks targeting your weakest stats, which you can accept with one tap.
+- [x] **B6. Quests from the Game Master** (built): on the Quests page it suggests 3–5 tasks based on your recent weeks and your weakest stats, which you accept or dismiss with one tap.
 
 ### Medium value
 

@@ -2,17 +2,124 @@ import { useState } from 'react';
 import { DeltaChips, StatChip } from '../components/StatChip';
 import { STATS, STAT_LIST } from '../data/defaults';
 import { uid } from '../lib/id';
-import { achievementProgressFor, isTaskDone, unlockedAchievementIds } from '../lib/scoring';
+import { OpenAIError, suggestQuests } from '../lib/openai';
+import {
+  achievementProgressFor,
+  isTaskDone,
+  laterTierIds,
+  nextStatGoal,
+  statsWeakestFirst,
+  unlockedAchievementIds,
+} from '../lib/scoring';
 import { toWeekId } from '../lib/week';
-import { useGame } from '../state/store';
+import { useCharacter, useGame } from '../state/store';
 import type { Achievement, AchievementCondition, StatId, Task } from '../types';
+import type { Tab } from '../App';
 
-export function QuestsPage() {
+export function QuestsPage({ go }: { go: (tab: Tab) => void }) {
   return (
     <div>
+      <SuggestionsSection go={go} />
       <TasksSection />
       <AchievementsSection />
     </div>
+  );
+}
+
+function SuggestionsSection({ go }: { go: (tab: Tab) => void }) {
+  const { state, dispatch } = useGame();
+  const { stats } = useCharacter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [empty, setEmpty] = useState(false);
+  const hasKey = Boolean(state.settings.openaiApiKey);
+  const weakest = statsWeakestFirst(stats).slice(0, 2);
+
+  async function ask() {
+    setError('');
+    setEmpty(false);
+    setLoading(true);
+    try {
+      const suggestions = await suggestQuests(state, toWeekId(new Date(), state.settings.weekStartsOn));
+      dispatch({ type: 'setSuggestions', suggestions });
+      setEmpty(suggestions.length === 0);
+    } catch (e) {
+      setError(e instanceof OpenAIError ? e.message : `Something went wrong: ${String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="section">
+      <h2>Quests from the Game Master</h2>
+      <div className="gm">
+        <div className="avatar" aria-hidden>
+          🧙
+        </div>
+        <div className="bubble stack" style={{ gap: 10 }}>
+          <span>
+            I'll look at your recent weeks and your stats, then propose quests that fit your routine and help your
+            weakest stats catch up.
+          </span>
+          <div className="row small">
+            <span className="muted">Needs the most work:</span>
+            {weakest.map((id) => {
+              const goal = nextStatGoal(state, id);
+              return (
+                <span className="row" key={id} style={{ gap: 4 }}>
+                  <StatChip id={id} />
+                  <span className="mono">{stats[id]}</span>
+                  {goal && <span className="muted">→ {goal.target}</span>}
+                </span>
+              );
+            })}
+          </div>
+          <div className="row">
+            <button className="btn primary" disabled={!hasKey || loading} onClick={ask}>
+              {loading ? 'Thinking…' : state.suggestions.length ? 'Suggest different quests' : 'Suggest quests for me'}
+            </button>
+            {!hasKey && (
+              <span className="small muted">
+                ChatGPT isn't connected yet.{' '}
+                <button className="btn small ghost" style={{ padding: 0, color: 'var(--focus)' }} onClick={() => go('settings')}>
+                  Connect it in Settings
+                </button>
+              </span>
+            )}
+          </div>
+          {error && <div className="notice error small">{error}</div>}
+          {empty && <span className="small muted">Nothing new this time. Try again after your next check-in.</span>}
+        </div>
+      </div>
+
+      {state.suggestions.length > 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <ul className="feed">
+            {state.suggestions.map((s) => (
+              <li key={s.id} className="suggestion">
+                <span className="stack" style={{ gap: 4, flex: 1, minWidth: 0 }}>
+                  <span className="row">
+                    <strong>{s.title}</strong>
+                    <StatChip id={s.statId} delta={s.points} />
+                    <span className="chip">{s.repeat === 'weekly' ? '↻ weekly' : 'once'}</span>
+                  </span>
+                  {s.reason && <span className="small muted">{s.reason}</span>}
+                </span>
+                <span className="row">
+                  <button className="btn small primary" onClick={() => dispatch({ type: 'acceptSuggestion', id: s.id })}>
+                    Accept
+                  </button>
+                  <button className="btn small ghost" onClick={() => dispatch({ type: 'dismissSuggestion', id: s.id })}>
+                    Dismiss
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -143,6 +250,8 @@ function conditionLabel(c: AchievementCondition): string {
       return `${c.weeks}-week streak`;
     case 'statReaches':
       return `${STATS[c.statId].name} ${c.value}`;
+    case 'allStatsReach':
+      return `All stats ${c.value}`;
     case 'tasksCompleted':
       return `${c.count} tasks`;
     case 'level':
@@ -156,7 +265,17 @@ function AchievementsSection() {
   const unlocked = unlockedAchievementIds(state.ledger);
   const progressOf = achievementProgressFor(state);
   const unlockedAt = (id: string) => state.ledger.find((e) => e.source === 'achievement' && e.refId === id)?.at;
-  const sorted = [...state.achievements].sort((a, b) => Number(unlocked.has(b.id)) - Number(unlocked.has(a.id)));
+  const [showAll, setShowAll] = useState(false);
+  // Stat milestones come in tiers; until asked, only the next tier of each is listed.
+  const later = laterTierIds(state.achievements, unlocked);
+  const ratio = (a: Achievement) => {
+    const p = progressOf(a);
+    return p ? Math.min(1, p.current / p.target) : 0;
+  };
+  // Unlocked first, then the locked ones closest to done.
+  const sorted = state.achievements
+    .filter((a) => showAll || !later.has(a.id))
+    .sort((a, b) => Number(unlocked.has(b.id)) - Number(unlocked.has(a.id)) || ratio(b) - ratio(a));
 
   return (
     <section className="section">
@@ -168,7 +287,10 @@ function AchievementsSection() {
           {adding ? 'Close' : '+ New achievement'}
         </button>
       </div>
-      <p className="small muted">Big milestones with big rewards. Most unlock automatically; personal goals you unlock yourself.</p>
+      <p className="small muted">
+        Big milestones with big rewards. Most unlock automatically; personal goals you unlock yourself. Each stat has
+        milestones at 15, 20 and 30, and getting every stat there earns a bonus to all six.
+      </p>
       {adding && (
         <AchievementForm
           onSave={(achievement) => {
@@ -234,6 +356,11 @@ function AchievementsSection() {
           );
         })}
       </div>
+      {later.size > 0 && (
+        <button className="btn small ghost" style={{ marginTop: 12 }} onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Show next milestones only' : `Show ${later.size} later milestones`}
+        </button>
+      )}
     </section>
   );
 }
@@ -261,6 +388,8 @@ function AchievementForm({ onSave }: { onSave: (a: Achievement) => void }) {
         return { kind, level: target };
       case 'statReaches':
         return { kind, statId: condStat, value: target };
+      case 'allStatsReach':
+        return { kind, value: target };
     }
   };
 
@@ -301,6 +430,7 @@ function AchievementForm({ onSave }: { onSave: (a: Achievement) => void }) {
           <select value={kind} onChange={(e) => setKind(e.target.value as AchievementCondition['kind'])}>
             <option value="manual">I mark it done</option>
             <option value="statReaches">A stat reaches…</option>
+            <option value="allStatsReach">Every stat reaches…</option>
             <option value="streak">Check-in streak of… weeks</option>
             <option value="checkins">Total check-ins…</option>
             <option value="tasksCompleted">Tasks completed…</option>

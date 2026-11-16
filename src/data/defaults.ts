@@ -101,6 +101,55 @@ export const DEFAULT_TASKS: Task[] = [
   { id: 'task-ship', title: 'Finish and share a creative project', statId: 'cre', points: 2, repeat: 'once', createdAt: now() },
 ];
 
+// Stat milestones: three tiers per stat, plus "every stat" tiers that reward
+// catching up the weakest one. Reaching a tier boosts a related stat.
+const MILESTONE_TIERS = [
+  { value: 15, reward: 1 },
+  { value: 20, reward: 3 },
+  { value: 30, reward: 5 },
+] as const;
+
+const MILESTONE_META: Record<StatId, { partner: StatId; titles: [string, string, string]; icons: [string, string, string] }> = {
+  int: { partner: 'cre', titles: ['Curious Mind', 'Scholar', 'Archmage'], icons: ['🔎', '🎓', '🔮'] },
+  str: { partner: 'vit', titles: ['Warmed Up', 'Iron Body', 'Titan'], icons: ['👟', '🏋️', '🗿'] },
+  vit: { partner: 'str', titles: ['Well Rested', 'Picture of Health', 'Evergreen'], icons: ['😴', '🍎', '🌲'] },
+  cre: { partner: 'int', titles: ['Tinkerer', 'Maker', 'Virtuoso'], icons: ['✏️', '🛠️', '🎻'] },
+  soc: { partner: 'vit', titles: ['Friendly Face', 'Life of the Party', 'Heart of the Guild'], icons: ['👋', '🎉', '💞'] },
+  dis: { partner: 'soc', titles: ['Reliable', 'Iron Will', 'Unbreakable'], icons: ['✅', '⚓', '💎'] },
+};
+
+const BALANCE_MILESTONES: Achievement[] = [
+  { value: 15, reward: 1, title: 'Well-Rounded', icon: '⚖️' },
+  { value: 20, reward: 2, title: 'Jack of All Trades', icon: '🃏' },
+  { value: 30, reward: 3, title: 'Renaissance Soul', icon: '🌟' },
+].map((m) => ({
+  id: `ach-all${m.value}`,
+  title: m.title,
+  description: `Get every stat to ${m.value} or more. Your weakest stat sets the pace.`,
+  icon: m.icon,
+  condition: { kind: 'allStatsReach', value: m.value },
+  reward: Object.fromEntries(STAT_IDS.map((id) => [id, m.reward])),
+}));
+
+export const STAT_MILESTONES: Achievement[] = [
+  ...STAT_IDS.flatMap((statId) =>
+    MILESTONE_TIERS.map((tier, i): Achievement => ({
+      id: `ach-${statId}${tier.value}`,
+      title: MILESTONE_META[statId].titles[i],
+      description: `Reach ${tier.value} ${STATS[statId].name}.`,
+      icon: MILESTONE_META[statId].icons[i],
+      condition: { kind: 'statReaches', statId, value: tier.value },
+      reward: { [MILESTONE_META[statId].partner]: tier.reward },
+    })),
+  ),
+  ...BALANCE_MILESTONES,
+];
+
+/** Bumped whenever new built-in content should be added to existing saves. */
+export const SEED_VERSION = 2;
+/** Milestones that shipped in seed 1; later seeds must not re-add them if the player deleted them. */
+export const SEED1_MILESTONE_IDS = ['ach-str20', 'ach-int20', 'ach-soc20'];
+
 export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'ach-first',
@@ -135,30 +184,6 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     reward: { dis: 2 },
   },
   {
-    id: 'ach-str20',
-    title: 'Iron Body',
-    description: 'Reach 20 Strength.',
-    icon: '🏋️',
-    condition: { kind: 'statReaches', statId: 'str', value: 20 },
-    reward: { vit: 3 },
-  },
-  {
-    id: 'ach-int20',
-    title: 'Scholar',
-    description: 'Reach 20 Intelligence.',
-    icon: '🎓',
-    condition: { kind: 'statReaches', statId: 'int', value: 20 },
-    reward: { cre: 3 },
-  },
-  {
-    id: 'ach-soc20',
-    title: 'Life of the Party',
-    description: 'Reach 20 Social.',
-    icon: '🎉',
-    condition: { kind: 'statReaches', statId: 'soc', value: 20 },
-    reward: { vit: 3 },
-  },
-  {
     id: 'ach-lv5',
     title: 'Rising Hero',
     description: 'Reach character level 5.',
@@ -166,6 +191,7 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     condition: { kind: 'level', level: 5 },
     reward: { int: 1, str: 1, vit: 1, cre: 1, soc: 1, dis: 1 },
   },
+  ...STAT_MILESTONES,
   {
     id: 'ach-halfmarathon',
     title: 'Distance Runner',
@@ -189,6 +215,7 @@ export const DEFAULT_MODEL = 'gpt-5-mini';
 export function createInitialState(): GameState {
   return {
     version: 1,
+    seed: SEED_VERSION,
     settings: {
       characterName: 'Player One',
       openaiApiKey: '',
@@ -204,5 +231,6 @@ export function createInitialState(): GameState {
     achievements: DEFAULT_ACHIEVEMENTS.map((a) => ({ ...a })),
     ledger: [],
     checkins: [],
+    suggestions: [],
   };
 }

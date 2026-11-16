@@ -1,5 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
-import { DEFAULT_RULES, createInitialState } from '../data/defaults';
+import {
+  DEFAULT_RULES,
+  SEED1_MILESTONE_IDS,
+  SEED_VERSION,
+  STAT_MILESTONES,
+  createInitialState,
+} from '../data/defaults';
 import { uid } from '../lib/id';
 import {
   achievementEvent,
@@ -10,7 +16,17 @@ import {
   totalXp,
 } from '../lib/scoring';
 import { toWeekId } from '../lib/week';
-import type { Achievement, CheckIn, GameState, LedgerEvent, Rule, Settings, StatId, Task } from '../types';
+import type {
+  Achievement,
+  CheckIn,
+  GameState,
+  LedgerEvent,
+  QuestSuggestion,
+  Rule,
+  Settings,
+  StatId,
+  Task,
+} from '../types';
 
 const STORAGE_KEY = 'earth-online/v1';
 
@@ -21,6 +37,9 @@ export type Action =
   | { type: 'deleteTask'; id: string }
   | { type: 'completeTask'; id: string }
   | { type: 'uncompleteTask'; id: string }
+  | { type: 'setSuggestions'; suggestions: QuestSuggestion[] }
+  | { type: 'acceptSuggestion'; id: string }
+  | { type: 'dismissSuggestion'; id: string }
   | { type: 'saveAchievement'; achievement: Achievement }
   | { type: 'deleteAchievement'; id: string }
   | { type: 'unlockAchievement'; id: string }
@@ -106,6 +125,28 @@ export function reducer(state: GameState, action: Action): GameState {
       return match ? { ...state, ledger: state.ledger.filter((e) => e.id !== match.id) } : state;
     }
 
+    case 'setSuggestions':
+      return { ...state, suggestions: action.suggestions };
+    case 'acceptSuggestion': {
+      const s = state.suggestions.find((x) => x.id === action.id);
+      if (!s) return state;
+      const task: Task = {
+        id: uid('task-'),
+        title: s.title,
+        statId: s.statId,
+        points: s.points,
+        repeat: s.repeat,
+        createdAt: now.toISOString(),
+      };
+      return {
+        ...state,
+        tasks: [...state.tasks, task],
+        suggestions: state.suggestions.filter((x) => x.id !== s.id),
+      };
+    }
+    case 'dismissSuggestion':
+      return { ...state, suggestions: state.suggestions.filter((x) => x.id !== action.id) };
+
     case 'saveAchievement':
       return applyAutoAchievements({ ...state, achievements: upsert(state.achievements, action.achievement) }, now);
     case 'deleteAchievement':
@@ -164,15 +205,26 @@ export function normalizeState(raw: unknown): GameState {
   const fresh = createInitialState();
   if (!raw || typeof raw !== 'object') return fresh;
   const s = raw as Partial<GameState>;
+  let achievements = Array.isArray(s.achievements) ? s.achievements : fresh.achievements;
+  // Seed 2 added the stat milestones. Older saves receive them once, so deleting one afterwards sticks.
+  if ((s.seed ?? 1) < 2) {
+    const have = new Set(achievements.map((a) => a.id));
+    achievements = [
+      ...achievements,
+      ...STAT_MILESTONES.filter((a) => !have.has(a.id) && !SEED1_MILESTONE_IDS.includes(a.id)),
+    ];
+  }
   return {
     version: 1,
+    seed: SEED_VERSION,
     settings: { ...fresh.settings, ...s.settings },
     baseStats: { ...fresh.baseStats, ...s.baseStats },
     rules: Array.isArray(s.rules) ? s.rules : fresh.rules,
     tasks: Array.isArray(s.tasks) ? s.tasks : fresh.tasks,
-    achievements: Array.isArray(s.achievements) ? s.achievements : fresh.achievements,
+    achievements,
     ledger: Array.isArray(s.ledger) ? s.ledger : [],
     checkins: Array.isArray(s.checkins) ? s.checkins : [],
+    suggestions: Array.isArray(s.suggestions) ? s.suggestions : [],
   };
 }
 
