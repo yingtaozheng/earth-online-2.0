@@ -1,4 +1,4 @@
-import { STATS } from '../data/defaults';
+import { RANKS, STATS } from '../data/defaults';
 import type {
   Achievement,
   CheckIn,
@@ -92,6 +92,13 @@ export function levelInfo(xp: number) {
   const floor = xpForLevel(level);
   const ceil = xpForLevel(level + 1);
   return { level, xpIntoLevel: xp - floor, xpForNext: ceil - floor, progress: (xp - floor) / (ceil - floor) };
+}
+
+/** Rank title for a level (see RANKS). */
+export function rankTitle(level: number): string {
+  let title: string = RANKS[0].title;
+  for (const rank of RANKS) if (level >= rank.level) title = rank.title;
+  return title;
 }
 
 export function classTitle(stats: StatValues): string {
@@ -276,6 +283,8 @@ export interface WeekPoint {
   weekId: string;
   values: StatValues;
   change: StatDeltas;
+  /** The starting stats, before any week was played (see withStartPoint). */
+  isStart?: boolean;
 }
 
 /**
@@ -301,6 +310,22 @@ export function weeklySeries(state: GameState, currentWeekId: string): WeekPoint
     points.push({ weekId: week, values, change: sumDeltas(...events.map((e) => e.deltas)) });
   }
   return points;
+}
+
+/**
+ * `weeklySeries` holds end-of-week values, so on its own it hides whatever
+ * happened in the first week. This adds the starting stats one week earlier,
+ * giving charts a "before" point to draw the first change from.
+ */
+export function withStartPoint(state: GameState, points: WeekPoint[]): WeekPoint[] {
+  if (points.length === 0) return points;
+  const start: WeekPoint = {
+    weekId: addWeeks(points[0].weekId, -1),
+    values: { ...state.baseStats },
+    change: {},
+    isStart: true,
+  };
+  return [start, ...points];
 }
 
 export function statIdsWithChange(deltas: StatDeltas): StatId[] {

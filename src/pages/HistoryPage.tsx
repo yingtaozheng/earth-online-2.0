@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { DeltaChips, StatChip } from '../components/StatChip';
 import { StatHistoryChart } from '../components/StatHistoryChart';
-import { longestStreak, weeklySeries } from '../lib/scoring';
+import { longestStreak, weeklySeries, withStartPoint } from '../lib/scoring';
 import { toWeekId, weekLabel } from '../lib/week';
 import { useGame } from '../state/store';
 import type { EventSource } from '../types';
@@ -16,7 +16,7 @@ const SOURCE_LABEL: Record<EventSource, string> = {
 export function HistoryPage() {
   const { state, dispatch } = useGame();
   const currentWeek = toWeekId(new Date(), state.settings.weekStartsOn);
-  const points = useMemo(() => weeklySeries(state, currentWeek), [state, currentWeek]);
+  const points = useMemo(() => withStartPoint(state, weeklySeries(state, currentWeek)), [state, currentWeek]);
   const checkins = [...state.checkins].sort((a, b) => b.weekId.localeCompare(a.weekId));
   const [filter, setFilter] = useState<EventSource | 'all'>('all');
   const ledger = [...state.ledger].reverse().filter((e) => filter === 'all' || e.source === filter);

@@ -55,6 +55,17 @@ export const STATS: Record<StatId, StatDef> = {
 
 export const STAT_LIST: StatDef[] = STAT_IDS.map((id) => STATS[id]);
 
+/** Rank titles by level: a rank applies from its level until the next one starts. Ascending. */
+export const RANKS = [
+  { level: 1, title: 'Newcomer' },
+  { level: 3, title: 'Apprentice' },
+  { level: 5, title: 'Journeyman' },
+  { level: 8, title: 'Veteran' },
+  { level: 12, title: 'Elite' },
+  { level: 16, title: 'Champion' },
+  { level: 20, title: 'Legend' },
+] as const;
+
 export const DEFAULT_BASE_STATS: StatValues = { int: 10, str: 10, vit: 10, cre: 10, soc: 10, dis: 10 };
 
 const rule = (

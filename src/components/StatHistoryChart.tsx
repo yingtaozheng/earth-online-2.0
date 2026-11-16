@@ -102,7 +102,7 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
             <tbody>
               {[...points].reverse().map((p) => (
                 <tr key={p.weekId}>
-                  <td>{weekLabel(p.weekId)}</td>
+                  <td>{p.isStart ? "Start" : weekLabel(p.weekId)}</td>
                   {STAT_IDS.map((id) => {
                     const d = p.change[id];
                     return (
@@ -133,7 +133,7 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
               {points.map((p, i) =>
                 i % xLabelEvery === 0 || i === points.length - 1 ? (
                   <text key={p.weekId} className="tick" x={x(i)} y={innerH + 18} textAnchor="middle">
-                    {shortWeekLabel(p.weekId)}
+                    {p.isStart ? "Start" : shortWeekLabel(p.weekId)}
                   </text>
                 ) : null,
               )}
@@ -186,7 +186,7 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
                 right: tooltipLeft > width / 2 ? width - tooltipLeft + 12 : undefined,
               }}
             >
-              <strong>{weekLabel(hp.weekId)}</strong>
+              <strong>{hp.isStart ? "Starting stats" : weekLabel(hp.weekId)}</strong>
               {shown.map((id) => {
                 const d = hp.change[id];
                 return (

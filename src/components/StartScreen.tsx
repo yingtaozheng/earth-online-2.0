@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { classTitle } from '../lib/scoring';
+import { classTitle, rankTitle } from '../lib/scoring';
 import { daysBetween, endOfWeek, toWeekId, weekLabel } from '../lib/week';
 import { useCharacter, useGame } from '../state/store';
 
@@ -7,7 +7,7 @@ import { useCharacter, useGame } from '../state/store';
 const INTRO_MS = 3000;
 const EXIT_MS = 450;
 
-const prefersReducedMotion = () =>
+export const prefersReducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
@@ -81,7 +81,7 @@ export function StartScreen({ onEnter, onDone }: { onEnter: () => void; onDone: 
           <li>
             <span>Loading character: {state.settings.characterName}</span>
             <b>
-              Lv {level} {classTitle(stats)}
+              Lv {level} {rankTitle(level)} {classTitle(stats)}
             </b>
           </li>
           <li>

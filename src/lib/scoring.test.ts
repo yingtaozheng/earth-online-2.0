@@ -11,6 +11,8 @@ import {
   laterTierIds,
   levelInfo,
   longestStreak,
+  rankTitle,
+  withStartPoint,
   nextStatGoal,
   statsWeakestFirst,
   sumDeltas,
@@ -70,6 +72,19 @@ describe('xp & levels', () => {
     expect(levelInfo(15).level).toBe(3);
     expect(levelInfo(29).level).toBe(3);
     expect(levelInfo(30).level).toBe(4);
+  });
+
+  it('names the rank after the level', () => {
+    expect([1, 2, 3, 4, 5, 19, 20, 99].map(rankTitle)).toEqual([
+      'Newcomer',
+      'Newcomer',
+      'Apprentice',
+      'Apprentice',
+      'Journeyman',
+      'Champion',
+      'Legend',
+      'Legend',
+    ]);
   });
 
   it('names the class after the top stat', () => {
@@ -199,5 +214,10 @@ describe('reducer', () => {
     const series = weeklySeries(state, week);
     expect(series.map((p) => p.weekId)).toEqual([twoAgo, addWeeks(week, -1), week]);
     expect(series.map((p) => p.values.str)).toEqual([12, 12, 12]);
+
+    // On its own that series is flat: the chart needs the starting stats to show the first change.
+    const charted = withStartPoint(state, series);
+    expect(charted.map((p) => p.values.str)).toEqual([10, 12, 12, 12]);
+    expect(charted[0]).toMatchObject({ weekId: addWeeks(twoAgo, -1), isStart: true });
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { GameClock } from './components/GameClock';
+import { QuitScreen } from './components/QuitScreen';
 import { StartScreen } from './components/StartScreen';
 import { CharacterPage } from './pages/CharacterPage';
 import { CheckInPage } from './pages/CheckInPage';
@@ -47,16 +48,18 @@ export function App() {
   };
 
   // The start screen covers the app on every launch; the app mounts underneath as it fades out.
-  const [intro, setIntro] = useState<'showing' | 'leaving' | 'gone'>('showing');
+  // Quitting swaps the app for the goodbye screen; coming back replays the start screen.
+  const [intro, setIntro] = useState<'showing' | 'leaving' | 'gone' | 'quit'>('showing');
+  if (intro === 'quit') return <QuitScreen onReturn={() => setIntro('showing')} />;
   return (
     <>
       {intro !== 'gone' && <StartScreen onEnter={() => setIntro('leaving')} onDone={() => setIntro('gone')} />}
-      {intro !== 'showing' && <Shell tab={tab} go={go} />}
+      {intro !== 'showing' && <Shell tab={tab} go={go} onQuit={() => setIntro('quit')} />}
     </>
   );
 }
 
-function Shell({ tab, go }: { tab: Tab; go: (tab: Tab) => void }) {
+function Shell({ tab, go, onQuit }: { tab: Tab; go: (tab: Tab) => void; onQuit: () => void }) {
   return (
     <div className="app">
       <header className="topbar">
@@ -67,7 +70,12 @@ function Shell({ tab, go }: { tab: Tab; go: (tab: Tab) => void }) {
             <small>Level up your real life</small>
           </div>
         </div>
-        <GameClock />
+        <div className="row">
+          <GameClock />
+          <button className="btn quit-btn" onClick={onQuit} title="Quit Earth Online">
+            <span aria-hidden>⏻</span> Quit
+          </button>
+        </div>
       </header>
 
       <nav className="nav" aria-label="Main">
