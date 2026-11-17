@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GameClock } from './components/GameClock';
-import { QuitScreen } from './components/QuitScreen';
-import { StartScreen } from './components/StartScreen';
+import { skinFor } from './components/skins';
+import { Toasts } from './components/Toasts';
 import { CharacterPage } from './pages/CharacterPage';
 import { CheckInPage } from './pages/CheckInPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -50,16 +50,29 @@ export function App() {
   // The start screen covers the app on every launch; the app mounts underneath as it fades out.
   // Quitting swaps the app for the goodbye screen; coming back replays the start screen.
   const [intro, setIntro] = useState<'showing' | 'leaving' | 'gone' | 'quit'>('showing');
-  if (intro === 'quit') return <QuitScreen onReturn={() => setIntro('showing')} />;
+  const skin = skinFor(state.settings.skin);
+  if (intro === 'quit') return <skin.Quit onReturn={() => setIntro('showing')} />;
   return (
     <>
-      {intro !== 'gone' && <StartScreen onEnter={() => setIntro('leaving')} onDone={() => setIntro('gone')} />}
-      {intro !== 'showing' && <Shell tab={tab} go={go} onQuit={() => setIntro('quit')} />}
+      {intro !== 'gone' && <skin.Start onEnter={() => setIntro('leaving')} onDone={() => setIntro('gone')} />}
+      {intro !== 'showing' && (
+        <Shell tab={tab} go={go} onQuit={() => setIntro('quit')} onReplayIntro={() => setIntro('showing')} />
+      )}
     </>
   );
 }
 
-function Shell({ tab, go, onQuit }: { tab: Tab; go: (tab: Tab) => void; onQuit: () => void }) {
+function Shell({
+  tab,
+  go,
+  onQuit,
+  onReplayIntro,
+}: {
+  tab: Tab;
+  go: (tab: Tab) => void;
+  onQuit: () => void;
+  onReplayIntro: () => void;
+}) {
   return (
     <div className="app">
       <header className="topbar">
@@ -70,12 +83,10 @@ function Shell({ tab, go, onQuit }: { tab: Tab; go: (tab: Tab) => void; onQuit: 
             <small>Level up your real life</small>
           </div>
         </div>
-        <div className="row">
-          <GameClock />
-          <button className="btn quit-btn" onClick={onQuit} title="Quit Earth Online">
-            <span aria-hidden>⏻</span> Quit
-          </button>
-        </div>
+        <GameClock />
+        <button className="btn quit-btn" onClick={onQuit} title="Quit Earth Online">
+          <span aria-hidden>⏻</span> Quit
+        </button>
       </header>
 
       <nav className="nav" aria-label="Main">
@@ -95,8 +106,9 @@ function Shell({ tab, go, onQuit }: { tab: Tab; go: (tab: Tab) => void; onQuit: 
         {tab === 'quests' && <QuestsPage go={go} />}
         {tab === 'history' && <HistoryPage />}
         {tab === 'rules' && <RulesPage />}
-        {tab === 'settings' && <SettingsPage />}
+        {tab === 'settings' && <SettingsPage onReplayIntro={onReplayIntro} onQuit={onQuit} />}
       </main>
+      <Toasts />
     </div>
   );
 }

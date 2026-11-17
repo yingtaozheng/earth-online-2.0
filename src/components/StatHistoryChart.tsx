@@ -7,6 +7,7 @@ import { STAT_IDS } from '../types';
 import { statColor } from './StatChip';
 
 const HEIGHT = 280;
+const DODGE_PX = 2.5;
 const M = { top: 12, right: 16, bottom: 28, left: 36 };
 
 function useWidth<T extends HTMLElement>() {
@@ -50,6 +51,14 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
 
   const x = (i: number) => (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
   const y = (v: number) => innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+  // Stats that share a value would draw on top of each other and hide all but one,
+  // so lines that coincide at a point are nudged a few pixels apart.
+  const dodge = (id: StatId, i: number) => {
+    const same = shown.filter((other) => points[i].values[other] === points[i].values[id]);
+    return (same.indexOf(id) - (same.length - 1) / 2) * DODGE_PX;
+  };
+  const py = (id: StatId, i: number) => y(points[i].values[id]) + dodge(id, i);
+  const latest = points[points.length - 1];
   const showMarkers = points.length <= 16;
   const xLabelEvery = Math.max(1, Math.ceil(points.length / Math.max(2, Math.floor(innerW / 70))));
 
@@ -80,6 +89,7 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
             <button key={id} type="button" aria-pressed={visible.has(id)} onClick={() => toggle(id)} style={statColor(id)}>
               <span className="swatch" aria-hidden />
               {STATS[id].name}
+              {latest && <span className="mono">{latest.values[id]}</span>}
             </button>
           ))}
         </div>
@@ -146,7 +156,7 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
                     <path
                       className="series"
                       stroke="var(--stat-color)"
-                      d={points.map((p, i) => `${i ? 'L' : 'M'}${x(i)},${y(p.values[id])}`).join('')}
+                      d={points.map((_, i) => `${i ? 'L' : 'M'}${x(i)},${py(id, i)}`).join('')}
                     />
                   )}
                   {points.map((p, i) =>
@@ -155,7 +165,7 @@ export function StatHistoryChart({ points }: { points: WeekPoint[] }) {
                         key={p.weekId}
                         className="marker"
                         cx={x(i)}
-                        cy={y(p.values[id])}
+                        cy={py(id, i)}
                         r={i === hover ? 5 : 4}
                         fill="var(--stat-color)"
                       />

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../data/defaults';
+import { blend } from '../components/skins/EarthCanvas';
 import { normalizeState, reducer } from '../state/store';
 import type { CheckIn, GameState, LedgerEvent } from '../types';
 import {
@@ -20,7 +21,7 @@ import {
   unlockedAchievementIds,
   weeklySeries,
 } from './scoring';
-import { addWeeks, toWeekId } from './week';
+import { addWeeks, alignWeekId, toWeekId } from './week';
 
 const ev = (deltas: LedgerEvent['deltas'], weekId = '2026-10-05'): LedgerEvent => ({
   id: Math.random().toString(36),
@@ -111,6 +112,73 @@ describe('weeks', () => {
     expect(toWeekId(sat, 1)).toBe('2026-10-05'); // Monday start
     expect(toWeekId(sat, 0)).toBe('2026-10-04'); // Sunday start
     expect(addWeeks('2026-10-05', -1)).toBe('2026-09-28');
+  });
+});
+
+describe('changing the first day of the week', () => {
+  it('moves a week id onto the other grid and leaves matching ids alone', () => {
+    expect(alignWeekId('2026-10-05', 0)).toBe('2026-10-04'); // Monday week -> the Sunday week it overlaps
+    expect(alignWeekId('2026-10-04', 1)).toBe('2026-10-05'); // and back
+    expect(alignWeekId('2026-10-05', 1)).toBe('2026-10-05');
+    expect(alignWeekId('not-a-date', 1)).toBe('not-a-date');
+  });
+
+  it('keeps the history chart in step with the stats when ids sit on the old grid', () => {
+    const current = '2026-10-19'; // a Monday
+    const state: GameState = {
+      ...createInitialState(),
+      settings: { ...createInitialState().settings, weekStartsOn: 1, startedAt: new Date(2026, 9, 1).toISOString() },
+      // Sunday-grid ids, as left behind by a save that used to start weeks on Sunday.
+      ledger: [ev({ str: 2, soc: -1 }, '2026-10-04'), ev({ int: 3 }, '2026-10-11'), ev({ vit: 1 }, '2026-10-19')],
+    };
+    const series = weeklySeries(state, current);
+    expect(series.map((p) => p.weekId)).toEqual(['2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19']);
+    expect(series.map((p) => p.values.str)).toEqual([10, 12, 12, 12]);
+    expect(series.at(-1)!.values).toEqual(computeStats(state.baseStats, state.ledger));
+  });
+
+  it('never loses an event, even one dated outside the charted range', () => {
+    const state: GameState = { ...createInitialState(), ledger: [ev({ cre: 4 }, '2031-01-06'), ev({ dis: 2 }, '2001-01-01')] };
+    const series = weeklySeries(state, toWeekId(new Date(), 1));
+    expect(series.at(-1)!.values).toEqual(computeStats(state.baseStats, state.ledger));
+    expect(series.length).toBeLessThanOrEqual(520);
+  });
+
+  it('re-keys stored weeks when the setting changes, and on load', () => {
+    let state: GameState = {
+      ...createInitialState(),
+      ledger: [ev({ str: 2 }, '2026-10-05')],
+      checkins: [checkin('2026-10-05', { str: 2 })],
+    };
+    state = reducer(state, { type: 'updateSettings', patch: { weekStartsOn: 0 } });
+    expect(state.ledger[0].weekId).toBe('2026-10-04');
+    expect(state.checkins[0].weekId).toBe('2026-10-04');
+
+    const loaded = normalizeState({ ...state, settings: { ...state.settings, weekStartsOn: 1 } });
+    expect(loaded.ledger[0].weekId).toBe('2026-10-05');
+  });
+});
+
+describe('skins', () => {
+  it('falls back to the default skin for saves without one', () => {
+    const fresh = createInitialState();
+    expect(fresh.settings.skin).toBe('orbit');
+    expect(normalizeState({ ...fresh, settings: { ...fresh.settings, skin: undefined } }).settings.skin).toBe('orbit');
+    expect(normalizeState({ ...fresh, settings: { ...fresh.settings, skin: 'neon' } }).settings.skin).toBe('orbit');
+    expect(normalizeState({ ...fresh, settings: { ...fresh.settings, skin: 'classic' } }).settings.skin).toBe('classic');
+  });
+
+  it('zooms the Earth about a fixed point and keeps it on screen', () => {
+    const near = { x: 1.2, y: -2, r: 4 };
+    const dot = { x: 0, y: 0.3, r: 0.045 };
+    expect(blend(near, dot, 0)).toEqual(near);
+    const end = blend(near, dot, 1);
+    expect(end.x).toBeCloseTo(0);
+    expect(end.y).toBeCloseTo(0.3);
+    expect(end.r).toBeCloseTo(0.045);
+    // Halfway through, the planet's nearest edge is still within a screen's reach of the middle.
+    const mid = blend(near, dot, 0.5);
+    expect(Math.hypot(mid.x, mid.y) - mid.r).toBeLessThan(0.5);
   });
 });
 

@@ -24,10 +24,13 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
+# This is the safety net. Claude is asked (CLAUDE.md) to commit with a real
+# message before a turn ends; when that happened there is nothing left to do here.
+# The fallback subject at least names what was touched.
 count=$(git diff --cached --name-only | wc -l | tr -d ' ')
-files=$(git diff --cached --name-only | head -3 | xargs -n1 basename | paste -sd ',' - | sed 's/,/, /g')
-[ "$count" -gt 3 ] && files="$files, …"
-subject="auto: update $count file(s) — $files"
+names=$(git diff --cached --name-only | xargs -n1 basename | sed 's/\.[^.]*$//' | awk '!seen[$0]++' | head -4 | paste -sd ',' - | sed 's/,/, /g')
+subject="Update $names"
+[ "$count" -gt 4 ] && subject="$subject and $((count - 4)) more"
 
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
   git commit -q -m "$subject" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" || { say "Auto-commit failed."; exit 0; }

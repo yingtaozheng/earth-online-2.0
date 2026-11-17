@@ -2,9 +2,11 @@ import { useRef, useState } from 'react';
 import { DEFAULT_MODEL } from '../data/defaults';
 import { OpenAIError, listModels } from '../lib/openai';
 import { normalizeState, useGame } from '../state/store';
-import type { Settings } from '../types';
+import { SKINS } from '../components/skins';
+import type { Settings, SkinId } from '../types';
+import { SKIN_IDS } from '../types';
 
-export function SettingsPage() {
+export function SettingsPage({ onReplayIntro, onQuit }: { onReplayIntro: () => void; onQuit: () => void }) {
   const { state, dispatch } = useGame();
   const s = state.settings;
   const update = (patch: Partial<Settings>) => dispatch({ type: 'updateSettings', patch });
@@ -52,6 +54,35 @@ export function SettingsPage() {
           </label>
         </div>
         <span className="small muted">Changing the week start moves past weeks by a day to match; nothing is lost.</span>
+      </section>
+
+      <section className="card stack">
+        <h2>Start &amp; goodbye screens</h2>
+        <div className="skin-list" role="radiogroup" aria-label="Skin">
+          {SKIN_IDS.map((id: SkinId) => (
+            <button
+              key={id}
+              role="radio"
+              aria-checked={s.skin === id}
+              className={`skin-option skin-${id}`}
+              onClick={() => update({ skin: id })}
+            >
+              <span className="skin-swatch" aria-hidden />
+              <span className="stack" style={{ gap: 2 }}>
+                <strong>{SKINS[id].name}</strong>
+                <span className="small muted">{SKINS[id].description}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="row">
+          <button className="btn small" onClick={onReplayIntro}>
+            Preview start screen
+          </button>
+          <button className="btn small" onClick={onQuit}>
+            Preview goodbye screen
+          </button>
+        </div>
       </section>
 
       <DataSection />

@@ -52,7 +52,7 @@ async function launch() {
 }
 
 /** A save with history on a Sunday week grid while the setting says Monday: the case that used to flatten the chart. */
-function seededSave() {
+function seededSave(skin) {
   const now = new Date();
   const thisWeek = mondayOf(now);
   const lastWeek = mondayOf(now, 1);
@@ -86,6 +86,7 @@ function seededSave() {
       weekStartsOn: 1,
       weeklyCapPerStat: 3,
       theme: 'auto',
+      skin,
       startedAt: mondayOf(now, 3).toISOString(),
     },
     baseStats: { int: 10, str: 10, vit: 10, cre: 10, soc: 10, dis: 10 },
@@ -140,9 +141,10 @@ async function newPage(browser, { save, viewport }) {
 }
 
 let shotIndex = 0;
-async function shot(page, name) {
+async function shot(page, name, settleMs = 450) {
   if (!SHOTS) return;
   mkdirSync(SHOTS, { recursive: true });
+  await page.waitForTimeout(settleMs); // let fades and modal animations finish
   await page.screenshot({ path: join(SHOTS, `${pad(++shotIndex)}-${name}.png`) });
 }
 
@@ -159,11 +161,15 @@ async function attributeValues(page) {
   return values.map(Number);
 }
 
+const START = '[data-screen=start]';
+const CONTINUE = '[data-action=continue]';
+const RETURN = '[data-action=return]';
+
 async function enterGame(page) {
-  await page.locator('.splash').waitFor({ timeout: 5000 });
+  await page.locator(START).waitFor({ timeout: 5000 });
   await page.keyboard.press('Enter');
   await page.locator('nav.nav').waitFor({ timeout: 5000 });
-  await page.locator('.splash').waitFor({ state: 'detached', timeout: 5000 });
+  await page.locator(START).waitFor({ state: 'detached', timeout: 5000 });
 }
 
 // ---------- scenarios ----------
@@ -172,29 +178,47 @@ async function freshStart(browser, url) {
   begin('fresh start: Enter key starts the game');
   const page = await newPage(browser, { viewport: { width: 1280, height: 800 } });
   await page.goto(url);
-  await page.locator('.splash').waitFor();
-  await shot(page, 'start-screen-intro');
+  await page.locator(START).waitFor();
+  check((await page.locator('.orbit').count()) === 1, 'a new game should open with the Orbit skin');
+  const webgl = (await page.locator('canvas.orbit-earth').count()) === 1;
+  console.log(`  (3D Earth: ${webgl ? 'WebGL' : 'flat fallback, no WebGL in this browser'})`);
+  await shot(page, 'orbit-intro', 1300);
   // No click first: Enter must work without the page ever being focused by the mouse.
   await page.keyboard.press('Enter');
-  await page.locator('nav.nav').waitFor({ timeout: 3000 }).catch(() => check(false, 'Enter did not open the game'));
-  await page.locator('.splash').waitFor({ state: 'detached', timeout: 3000 }).catch(() => check(false, 'start screen stayed up'));
+  await shot(page, 'orbit-dive', 620);
+  await page.locator('nav.nav').waitFor({ timeout: 4000 }).catch(() => check(false, 'Enter did not open the game'));
+  await page.locator(START).waitFor({ state: 'detached', timeout: 4000 }).catch(() => check(false, 'start screen stayed up'));
   check((await page.locator('h1').first().textContent())?.includes('Player One'), 'character name missing');
   check((await attributeValues(page)).join() === '10,10,10,10,10,10', 'a new character should start at 10 everywhere');
   await shot(page, 'character-fresh');
 
   begin('fresh start: Continue button after the intro');
   await page.reload();
-  const button = page.locator('.splash-continue');
-  await button.waitFor();
-  await page.waitForFunction(() => !document.querySelector('.splash-continue')?.disabled, null, { timeout: 6000 });
-  await shot(page, 'start-screen-ready');
-  await button.click();
-  await page.locator('nav.nav').waitFor({ timeout: 3000 }).catch(() => check(false, 'Continue did not open the game'));
+  await page.locator(`${START}.ready`).waitFor({ timeout: 7000 }).catch(() => check(false, 'intro never finished'));
+  await shot(page, 'orbit-ready', 700);
+  await page.locator(CONTINUE).click();
+  await page.locator('nav.nav').waitFor({ timeout: 4000 }).catch(() => check(false, 'Continue did not open the game'));
+  await page.locator(START).waitFor({ state: 'detached', timeout: 4000 }).catch(() => check(false, 'start screen stayed up'));
+
+  begin('fresh start: a tap skips the intro without entering');
+  await page.reload();
+  await page.locator(START).waitFor();
+  await page.mouse.click(640, 400);
+  await page.locator(`${START}.ready`).waitFor({ timeout: 1500 }).catch(() => check(false, 'a tap did not skip the intro'));
+  check((await page.locator('nav.nav').count()) === 0, 'a tap on the intro should not start the game');
   await page.context().close();
+
+  begin('fresh start: Orbit skin on a phone');
+  const phone = await newPage(browser, { viewport: { width: 390, height: 844 } });
+  await phone.goto(url);
+  await phone.locator(`${START}.ready`).waitFor({ timeout: 7000 });
+  await noSideScroll(phone, 'orbit start screen');
+  await shot(phone, 'orbit-ready-phone', 700);
+  await phone.context().close();
 }
 
-async function fullTour(browser, url, viewport, label) {
-  const page = await newPage(browser, { save: seededSave(), viewport });
+async function fullTour(browser, url, viewport, label, skin) {
+  const page = await newPage(browser, { save: seededSave(skin), viewport });
   begin(`${label}: load a saved game`);
   await page.goto(url);
   await enterGame(page);
@@ -260,6 +284,7 @@ async function fullTour(browser, url, viewport, label) {
   await shot(page, `${label}-checkin-review`);
   await page.getByRole('button', { name: 'Apply to character' }).click();
   await page.getByText('Week recorded!').waitFor({ timeout: 3000 }).catch(() => check(false, 'check-in was not applied'));
+  await page.locator('.toast', { hasText: 'Warmed Up' }).waitFor({ timeout: 3000 }).catch(() => check(false, 'no notice for the unlocked achievement'));
   await page.getByRole('button', { name: 'View character' }).click();
   const after = await attributeValues(page);
   // +2 STR from the check-in, +1 SOC from the answer, +2 SOC from the accepted quest. Achievements may add more.
@@ -292,15 +317,32 @@ async function fullTour(browser, url, viewport, label) {
   const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
   check(stored?.includes('"seed":2'), 'save was not written back with the current seed');
 
-  begin(`${label}: quit and come back`);
-  await page.getByRole('button', { name: 'Quit' }).click();
+  begin(`${label}: switch skin in settings`);
+  const other = skin === 'orbit' ? 'classic' : 'orbit';
+  const otherRoot = other === 'orbit' ? '.orbit' : '.splash';
+  await tab(page, 'Settings');
+  await page.getByRole('radio', { name: new RegExp(`^${other}`, 'i') }).click();
+  await shot(page, `${label}-settings`);
+  await page.getByRole('button', { name: 'Preview start screen' }).click();
+  await page.locator(`${otherRoot}${START}`).waitFor({ timeout: 3000 }).catch(() => check(false, `preview did not show the ${other} skin`));
+  await enterGame(page);
+  await tab(page, 'Settings');
+  await page.getByRole('radio', { name: new RegExp(`^${skin}`, 'i') }).click();
+
+  begin(`${label}: quit and come back (${skin} skin)`);
+  await page.getByRole('button', { name: 'Quit', exact: true }).click();
+  const quit = page.locator(`${skin === 'orbit' ? '.orbit' : '.splash'}[data-screen=quit]`);
+  await quit.waitFor({ timeout: 3000 }).catch(() => check(false, `goodbye screen is not the ${skin} skin`));
   await page.getByText('Thank you for playing').waitFor();
-  check(await page.locator('.quit-return').isDisabled(), 'goodbye should play before the way back appears');
-  await page.waitForTimeout(6500);
-  await shot(page, `${label}-quit`);
-  await page.waitForFunction(() => !document.querySelector('.quit-return')?.disabled, null, { timeout: 8000 });
-  await page.locator('.quit-return').click();
-  await page.locator('.splash-continue').waitFor({ timeout: 3000 }).catch(() => check(false, 'no start screen after coming back'));
+  check(await page.locator(RETURN).isDisabled(), 'goodbye should play before the way back appears');
+  await shot(page, `${label}-quit-early`, 2500);
+  const shown = Date.now();
+  await page.waitForFunction((sel) => !document.querySelector(sel)?.disabled, RETURN, { timeout: 14000 });
+  check(Date.now() - shown > 3500, 'goodbye ended too quickly');
+  await noSideScroll(page, 'goodbye screen');
+  await shot(page, `${label}-quit-end`, 900);
+  await page.locator(RETURN).click();
+  await page.locator(CONTINUE).waitFor({ timeout: 3000 }).catch(() => check(false, 'no start screen after coming back'));
   await page.context().close();
 }
 
@@ -312,8 +354,8 @@ let browser;
 try {
   browser = await launch();
   await freshStart(browser, url);
-  await fullTour(browser, url, { width: 1280, height: 800 }, 'desktop');
-  await fullTour(browser, url, { width: 390, height: 844 }, 'phone');
+  await fullTour(browser, url, { width: 1280, height: 800 }, 'desktop', 'orbit');
+  await fullTour(browser, url, { width: 390, height: 844 }, 'phone', 'classic');
 } catch (e) {
   failures.push(`${step}: ${e?.message ?? e}`);
 } finally {

@@ -24,9 +24,11 @@ import type {
   QuestSuggestion,
   Rule,
   Settings,
+  SkinId,
   StatId,
   Task,
 } from '../types';
+import { SKIN_IDS } from '../types';
 
 const STORAGE_KEY = 'earth-online/v1';
 
@@ -233,7 +235,7 @@ export function normalizeState(raw: unknown): GameState {
   return alignWeeks({
     version: 1,
     seed: SEED_VERSION,
-    settings: { ...fresh.settings, ...s.settings },
+    settings: { ...fresh.settings, ...s.settings, skin: SKIN_IDS.includes(s.settings?.skin as SkinId) ? s.settings!.skin : fresh.settings.skin },
     baseStats: { ...fresh.baseStats, ...s.baseStats },
     rules: Array.isArray(s.rules) ? s.rules : fresh.rules,
     tasks: Array.isArray(s.tasks) ? s.tasks : fresh.tasks,

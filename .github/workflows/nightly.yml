@@ -1,0 +1,35 @@
+# Runs the full check every night: type check, unit tests, build, a browser
+# click-through of the whole app (OpenAI mocked), a secret scan and an npm audit.
+# GitHub emails the repo owner when it fails. Run it by hand from the Actions tab.
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # 18:00 UTC = 02:00 in UTC+8
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run nightly
+        env:
+          SMOKE_BROWSER: chrome # preinstalled on GitHub's Ubuntu runners
+          SMOKE_SHOTS: smoke-screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshots
+          path: smoke-screenshots
+          if-no-files-found: ignore
+          retention-days: 7

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "typecheck": "tsc -b --noEmit",
     "save": "bash scripts/auto-commit.sh",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "nightly": "node scripts/nightly.mjs"
   },
   "dependencies": {
     "react": "^19.3.0",

@@ -52,7 +52,7 @@ Tick the boxes (`[x]`) for what you want and add notes. Then ask Claude to "appl
 
 ### Nice to have
 
-- [ ] **B13. Level-up animation and sound**, plus an avatar that changes with level and class.
+- [ ] **B13. Level-up animation and sound**, plus an avatar that changes with level and class. (Partly built: level-ups and achievements now show a notice, and levels have rank titles. No sound or avatar yet.)
 - [ ] **B14. Privacy filter**: replace friends' names with initials before sending your week to OpenAI.
 - [ ] **B15. Native app wrapper** (Capacitor for iOS/Android, Tauri for desktop) if you want app-store-style installs. The PWA already installs fine without it.
 - [ ] **B16. Optional daily mini check-in** (30 seconds) feeding the weekly one, for more accurate scoring.

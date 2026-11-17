@@ -13,7 +13,7 @@ export function GameClock() {
 
   return (
     <div className="clock" role="timer" aria-label="Game clock">
-      <span>
+      <span className="clock-time">
         <span className="live" aria-hidden />
         <strong>{time}</strong>
       </span>

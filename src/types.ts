@@ -107,6 +107,10 @@ export interface CheckIn {
   applied: StatDeltas;
 }
 
+/** Looks for the start and goodbye screens (see components/skins). */
+export const SKIN_IDS = ['orbit', 'classic'] as const;
+export type SkinId = (typeof SKIN_IDS)[number];
+
 export interface Settings {
   characterName: string;
   openaiApiKey: string;
@@ -115,6 +119,7 @@ export interface Settings {
   weekStartsOn: 0 | 1;
   weeklyCapPerStat: number;
   theme: 'auto' | 'light' | 'dark';
+  skin: SkinId;
   startedAt: string;
 }
 

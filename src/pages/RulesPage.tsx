@@ -38,7 +38,9 @@ export function RulesPage() {
             10 at {xpForLevel(10)}.
           </li>
           <li>
-            <strong>Class.</strong> Your class title comes from your highest stat (Warrior, Sage, Bard…).
+            <strong>Rank & class.</strong> Your rank comes from your level (Newcomer, Apprentice, Journeyman…) and
+            your class from your highest stat (Warrior, Sage, Bard…). Select your title on the Character page for the
+            full list.
           </li>
         </ul>
       </section>

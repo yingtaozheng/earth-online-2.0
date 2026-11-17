@@ -10,12 +10,13 @@ It's an installable web app (PWA) that works on phone and desktop, keeps your da
 
 | Page | What it does |
 |---|---|
-| ⚔️ **Character** | Attribute cards, level & XP bar, class title (Warrior, Sage, Bard…), this week's changes, streak, recent activity |
+| 🚀 **Start & goodbye** | A title screen on launch (Continue or Enter) and an animated goodbye from the Quit button. Two skins, chosen in Settings: **Orbit** (a 3D Earth you dive into) and **Classic** |
+| ⚔️ **Character** | Six attribute cards, level & XP bar, rank and class (e.g. Apprentice Bard), this week's changes, streak, and the weekly check-in button. Select a stat for its rules, next milestone and manual adjust; select your title for the full list of levels, ranks and classes |
 | 🧙 **Check-in** | Paste your week → the Game Master scores it, asks follow-up yes/no questions, and spots completed tasks. You review and tweak everything before applying. You can also score the week yourself with a rule checklist. |
-| 📜 **Quests** | Tasks (weekly or one-time, small bonus points) and achievements (big milestones and big rewards; automatic or unlocked by you) |
-| 📈 **History** | Stat chart over time with a hover tooltip and table view, every weekly check-in (with undo), and a full adventure log |
+| 📜 **Quests** | Quests suggested by the Game Master from your recent weeks and weakest stats, your tasks (weekly or one-time), and achievements, including milestones at 15, 20 and 30 for each stat and for all six together |
+| 📈 **History** | Stat chart from your starting stats to now, with a hover tooltip and table view, every weekly check-in (with undo), and a full adventure log |
 | 📖 **Rules** | How the game works, plus the editable rule book the Game Master follows |
-| ⚙️ **Settings** | Connect ChatGPT, character name, week start, weekly cap, theme, backup export/import |
+| ⚙️ **Settings** | Connect ChatGPT, character name, week start, weekly cap, theme, start/goodbye skin, backup export/import |
 
 The header shows a **real-time game clock**: live time, day count, and a countdown to the weekly reset.
 
@@ -34,8 +35,14 @@ Other commands:
 npm test           # unit tests (Vitest)
 npm run build      # type-check + production build into dist/
 npm run preview    # serve the production build
+npm run smoke      # click through the built app in a real browser (Chrome or Edge), OpenAI mocked
+npm run nightly    # everything: type check, tests, build, smoke test, secret scan, npm audit
 npm run save       # commit everything and push (same script the auto-commit hook uses)
 ```
+
+`npm run smoke` needs Chrome or Edge installed and a fresh `npm run build`. Set `SMOKE_SHOTS=<folder>` to save a
+screenshot of every screen, or `SMOKE_HEADED=1` to watch it run. `.github/workflows/nightly.yml` runs
+`npm run nightly` every night and uploads the screenshots.
 
 ## Connecting ChatGPT
 
@@ -82,13 +89,22 @@ src/
   lib/week.ts           week ids, countdown formatting
   state/store.tsx       reducer + localStorage persistence
   pages/                one file per tab
-  components/           game clock, stat chips, history chart
+  components/           game clock, stat chips, history chart, modal, level guide, toasts
+  components/skins/     start & goodbye screens: Orbit (WebGL Earth) and Classic
+public/earth.jpg        Earth texture for the Orbit skin
+scripts/smoke.mjs       browser smoke test
+scripts/nightly.mjs     nightly check (runs everything)
 scripts/auto-commit.sh  commit + push helper (used by the Claude Code hook)
 docs/IDEAS.md           proposed features to review
 CLAUDE.md               guide for Claude Code working in this repo
 ```
 
+## Credits
+
+The Earth texture (`public/earth.jpg`) is NASA's Blue Marble Next Generation (August 2004), from NASA Earth
+Observatory / Visible Earth. NASA imagery is in the public domain.
+
 ## Development workflow
 
-This repo is set up for [Claude Code](https://claude.com/claude-code). A **Stop hook** in `.claude/settings.json` runs `scripts/auto-commit.sh` after each Claude turn: it commits every change and tries to push to `origin`. If a push fails (for example, missing SSH key), the commit stays local and Claude Code shows a message. Run `git push` to see the error.
+This repo is set up for [Claude Code](https://claude.com/claude-code). A **Stop hook** in `.claude/settings.json` runs `scripts/auto-commit.sh` after each Claude turn: it commits anything Claude left uncommitted and tries to push to `origin`. Claude is asked to commit its own work with a message that says what changed, so the hook is only a safety net. If a push fails (for example, missing SSH key), the commit stays local and Claude Code shows a message. Run `git push` to see the error.
 To turn auto-commit off, remove the hook from `.claude/settings.json` (or open `/hooks` in Claude Code).

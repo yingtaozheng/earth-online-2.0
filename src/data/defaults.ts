@@ -234,6 +234,7 @@ export function createInitialState(): GameState {
       weekStartsOn: 1,
       weeklyCapPerStat: 3,
       theme: 'auto',
+      skin: 'orbit',
       startedAt: now(),
     },
     baseStats: { ...DEFAULT_BASE_STATS },

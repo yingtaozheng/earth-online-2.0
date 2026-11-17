@@ -15,10 +15,12 @@ npm run dev        # dev server
 npm test           # vitest (src/**/*.test.ts)
 npm run typecheck  # tsc
 npm run build      # tsc + vite build → dist/
+npm run smoke      # scripts/smoke.mjs: real-browser click-through of dist/ (needs Chrome or Edge, OpenAI mocked)
+npm run nightly    # scripts/nightly.mjs: typecheck + tests + build + smoke + secret scan + audit
 npm run save       # scripts/auto-commit.sh (commit all + push)
 ```
 
-Before finishing a change, run `npm test` and `npm run build`. Both must pass.
+Before finishing a change, run `npm test` and `npm run build`. Both must pass. For anything that touches the UI, also run `npm run smoke` (after the build): unit tests cannot see a broken key handler or a layout that overflows at 390px. Run it with `SMOKE_SHOTS=<scratch dir>` and look at the screenshots when the look matters. When you add a screen or a flow, add it to `scripts/smoke.mjs`.
 
 ## Architecture: rules that matter
 
@@ -29,9 +31,11 @@ Before finishing a change, run `npm test` and `npm run build`. Both must pass.
 - **Achievements** are evaluated by `applyAutoAchievements` after every state-changing action, on load, and on import. It loops until stable because rewards can unlock more. Once unlocked they stay unlocked; only manual ones can be re-locked.
 - **Stat milestones** (`STAT_MILESTONES` in `data/defaults.ts`) are generated: tiers 15/20/30 per stat (`statReaches`) plus "every stat" tiers (`allStatsReach`, progress = weakest stat). The Quests page hides later locked tiers (`laterTierIds`). New built-in content reaches existing saves through `state.seed` in `normalizeState`: bump `SEED_VERSION` and add once, so items a player deleted don't come back.
 - **Quest suggestions** (`suggestQuests`) use the same key and model as the check-in. The prompt carries stats weakest-first, the last 8 weeks of gains and losses, existing tasks and the last 4 check-in schedules. Output goes through `parseQuestSuggestions` and waits in `state.suggestions` until accepted (becomes a `Task`) or dismissed.
-- **Start screen** (`components/StartScreen.tsx`) shows on every launch, always dark. Its `INTRO_MS` must match the CSS animation delays under `.splash`.
-- **Quit screen** (`components/QuitScreen.tsx`) reuses the `.splash` stage. It calls `window.close()`, which only works in an installed PWA window; in a tab it stays up with a "Back to the game" button.
+- **Start & goodbye screens are skins** (`components/skins/`, chosen by `settings.skin`, registered in `skins/index.ts`). Each skin is a `Start` and a `Quit` component; the flow (intro timer, Enter starts from anywhere, any other key or a tap skips, one-shot enter, quit timer + `window.close()`) lives in `skins/shared.ts` so skins only decide looks. The start screen shows on every launch. `window.close()` only works in an installed PWA window; in a tab the goodbye stays up with a "Back to the game" button. Timings are constants at the top of each skin file and must match the CSS delays (`.splash…` for Classic, `.orbit…` for Orbit). Every skin root carries `data-screen="start|quit"` and its buttons `data-action="continue|return"`; the smoke test relies on those.
+- **Orbit skin's Earth** (`skins/EarthCanvas.tsx`) is one WebGL fragment shader, no 3D library: a shaded disc textured with `public/earth.jpg` (NASA Blue Marble, public domain), plus procedural clouds, atmosphere, city lights and stars. "Camera moves" are `animateTo(view)` on the disc's centre and radius; `blend` zooms about a fixed screen point. It falls back to made-up continents until the texture loads and to a CSS planet without WebGL.
+- **Week ids must share one grid.** When `weekStartsOn` changes, `alignWeeks` (reducer `updateSettings` and `normalizeState`) re-keys every stored `weekId`; `weeklySeries` also aligns and clamps, so its last point always equals `computeStats`. Comparing week ids from different grids silently drops events (this was the "flat chart" bug).
 - **Titles**: a character is "Lv N <rank> <class>". Rank comes from level (`RANKS`, `rankTitle`); class from the highest stat (`classTitle`). `LevelGuide` lists both.
+- **Toasts** (`components/Toasts.tsx`) announce level-ups and newly unlocked achievements by diffing each state against the previous one.
 - **Character page stays minimal**: stat cards show name, value, weekly change and bar only. Description, next milestone, rules and manual adjust live in the `StatDetail` modal (`components/Modal.tsx`, a native `<dialog>`). Put new detail there, not on the card.
 - **History chart** plots `withStartPoint(weeklySeries(...))`: end-of-week values plus the base stats as a "Start" point, otherwise first-week changes are invisible.
 - **The reducer** (`state/store.tsx`) holds all state transitions. Pages dispatch actions and never mutate state. Keep scoring logic in `lib/scoring.ts` as pure functions with tests.
@@ -51,7 +55,8 @@ Before finishing a change, run `npm test` and `npm run build`. Both must pass.
 
 ## Repo workflow
 
-- A **Stop hook** (`.claude/settings.json` → `scripts/auto-commit.sh`) auto-commits all changes at the end of every turn and tries `git push -u origin HEAD`. You don't need to commit manually unless you want a hand-written message for a meaningful change.
+- **Commit your own work before a turn ends**, with a message that says what changed and why (a short subject, then bullets for the separate changes). The owner does not want generic messages in the history. A **Stop hook** (`.claude/settings.json` → `scripts/auto-commit.sh`) commits whatever is still uncommitted and tries `git push -u origin HEAD`; treat it as a safety net, not as the way work gets committed.
+- `.github/workflows/nightly.yml` runs `npm run nightly` every night (18:00 UTC).
 - `vite.config.ts` uses `base: './'` so the build works under GitHub Pages' `/<repo>/` path. Keep asset URLs relative (`./icon.svg`).
 - `.github/workflows/deploy.yml` runs tests and deploys `main` to GitHub Pages.
 - `public/sw.js` is a minimal network-first service worker, registered in production only. Bump `CACHE` if caching behaviour changes.

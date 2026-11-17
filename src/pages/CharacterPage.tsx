@@ -96,11 +96,11 @@ export function CharacterPage({ go }: { go: (tab: Tab) => void }) {
                 title={s.description}
               >
                 <span className="stat-head">
-                  <span>
+                  <span className="stat-name">
                     <span aria-hidden>{s.icon}</span> {s.name}
                   </span>
                   {d ? (
-                    <span className={`small ${d > 0 ? 'good' : 'bad'}`}>
+                    <span className={`stat-delta small ${d > 0 ? 'good' : 'bad'}`}>
                       {d > 0 ? '▲ +' : '▼ '}
                       {d}
                     </span>
@@ -189,7 +189,7 @@ function StatDetail({
             🎯 <strong>{goal.achievement.title}</strong> at {goal.target}
             <span className="muted"> · {goal.target - value} to go</span>
           </span>
-          <div className="bar stat" style={statColor(statId)} aria-hidden>
+          <div className="bar stat-bar" style={statColor(statId)} aria-hidden>
             <span style={{ width: `${Math.min(1, value / goal.target) * 100}%` }} />
           </div>
         </div>
