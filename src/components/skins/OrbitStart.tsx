@@ -72,7 +72,7 @@ export function OrbitStart({ onEnter, onDone }: StartProps) {
       <div className="orbit-meta">
         Earth Online · Ver 2.0
         <br />
-        Day {session.day} · Week of {session.week}
+        <b className="orbit-day">Day {session.day}</b> · Week of {session.week}
       </div>
 
       <div className="orbit-center">
@@ -103,9 +103,6 @@ export function OrbitStart({ onEnter, onDone }: StartProps) {
       </div>
 
       <div className="orbit-foot">
-        <div className="orbit-ghost" aria-hidden>
-          Step into Earth
-        </div>
         <div className="orbit-tip">Tip: {TIPS[session.day % TIPS.length]}</div>
       </div>
 
